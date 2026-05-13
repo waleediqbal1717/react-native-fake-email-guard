@@ -1,0 +1,5 @@
+src/
+__tests__/
+rollup.config.js
+tsconfig.json
+jest.config.js
