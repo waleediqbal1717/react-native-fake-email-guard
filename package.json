@@ -1,6 +1,6 @@
 {
   "name": "react-native-fake-email-guard",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Detect disposable/temporary email addresses in React Native and JavaScript apps",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",

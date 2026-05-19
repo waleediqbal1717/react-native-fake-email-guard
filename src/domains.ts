@@ -1,6 +1,7 @@
 // Known disposable/temporary email domains
 const DISPOSABLE_DOMAINS: ReadonlySet<string> = new Set([
   // Mailinator family
+  "itquoted.com",
   "mailinator.com",
   "mailinator2.com",
   "mailinator.net",
