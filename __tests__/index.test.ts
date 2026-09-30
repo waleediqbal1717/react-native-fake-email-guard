@@ -23,6 +23,14 @@ describe("isDisposableEmail", () => {
     expect(isDisposableEmail("x@trashmail.me")).toBe(true);
   });
 
+  it("returns true for domains from the community blocklist", () => {
+    expect(isDisposableEmail("x@tempmail.plus")).toBe(true);
+    expect(isDisposableEmail("x@mailto.plus")).toBe(true);
+    expect(isDisposableEmail("x@dropmail.me")).toBe(true);
+    expect(isDisposableEmail("x@1secmail.com")).toBe(true);
+    expect(isDisposableEmail("x@tempmailo.com")).toBe(true);
+  });
+
   it("returns false for legitimate email providers", () => {
     expect(isDisposableEmail("user@gmail.com")).toBe(false);
     expect(isDisposableEmail("user@outlook.com")).toBe(false);

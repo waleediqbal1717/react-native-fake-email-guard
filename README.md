@@ -6,7 +6,7 @@
 
 Lightweight, zero-dependency library to detect disposable and temporary email addresses. Works in **React Native**, **React**, and any JavaScript/TypeScript environment.
 
-Bundles a curated blocklist of **500+ known disposable email providers** (mailinator, tempmail, guerrillamail, yopmail, 10minutemail, trashmail, and hundreds more) — **no network requests, works fully offline**.
+Bundles a blocklist of **9,000+ known disposable email providers** (mailinator, tempmail, guerrillamail, yopmail, 10minutemail, trashmail, and thousands more), combining a hand-curated list with the community-maintained [disposable-email-domains](https://github.com/disposable-email-domains/disposable-email-domains) list — **no network requests, works fully offline**.
 
 ---
 

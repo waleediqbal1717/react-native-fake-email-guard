@@ -1,5 +1,7 @@
-// Known disposable/temporary email domains
-const DISPOSABLE_DOMAINS: ReadonlySet<string> = new Set([
+import COMMUNITY_DOMAINS from "./community-domains";
+
+// Known disposable/temporary email domains (hand-curated)
+const CURATED_DOMAINS: readonly string[] = [
   // Mailinator family
   "itquoted.com",
   "mailinator.com",
@@ -756,6 +758,12 @@ const DISPOSABLE_DOMAINS: ReadonlySet<string> = new Set([
   "zoemail.net",
   "zoemail.org",
   "zomg.info",
+];
+
+// Hand-curated list merged with the community blocklist (see scripts/update-domains.js)
+const DISPOSABLE_DOMAINS: ReadonlySet<string> = new Set([
+  ...CURATED_DOMAINS,
+  ...COMMUNITY_DOMAINS,
 ]);
 
 export default DISPOSABLE_DOMAINS;

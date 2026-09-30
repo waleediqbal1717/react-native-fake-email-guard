@@ -12,7 +12,8 @@
     "build": "rollup -c",
     "test": "jest",
     "test:watch": "jest --watch",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test",
+    "update-domains": "node scripts/update-domains.js"
   },
   "keywords": [
     "disposable-email",
