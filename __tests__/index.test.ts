@@ -29,6 +29,8 @@ describe("isDisposableEmail", () => {
     expect(isDisposableEmail("x@dropmail.me")).toBe(true);
     expect(isDisposableEmail("x@1secmail.com")).toBe(true);
     expect(isDisposableEmail("x@tempmailo.com")).toBe(true);
+    expect(isDisposableEmail("x@1pad.de")).toBe(true);
+    expect(isDisposableEmail("x@pud.org")).toBe(true);
   });
 
   it("returns false for legitimate email providers", () => {
