@@ -1,0 +1,43 @@
+name: Refresh disposable-domains list
+
+# Disposable-mail services rotate through new domains constantly, so this
+# keeps the bundled + remotely-synced list (see syncBlocklist() in
+# src/index.ts) from drifting too far out of date between npm releases.
+# Opens a PR with the diff for review rather than pushing straight to main.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-domains:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Regenerate domain lists
+        run: node scripts/update-domains.js
+
+      - name: Open PR if the lists changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Refresh disposable domains list"
+          title: "Refresh disposable domains list"
+          body: |
+            Automated weekly refresh of `src/community-domains.ts` and
+            `data/disposable-domains.txt` from the upstream sources listed in
+            `scripts/update-domains.js`.
+          branch: auto/update-domains
+          delete-branch: true
+          add-paths: |
+            src/community-domains.ts
+            data/disposable-domains.txt

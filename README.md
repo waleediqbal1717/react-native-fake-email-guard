@@ -65,6 +65,35 @@ removeBlockedDomains(["mailinator.com"]);
 resetBlocklist();
 ```
 
+### Keeping up with rotating domains
+
+Disposable-mail services (temp-mail.org and similar) constantly register new
+domains and drop old ones — often faster than any bundled list, or an app
+release, can track. `syncBlocklist` fetches a fresh list at runtime and merges
+it into the blocklist, so you're not limited to whatever was bundled when the
+app was built. It's opt-in — nothing in this package makes a network request
+unless you call it.
+
+```ts
+import { syncBlocklist } from "react-native-fake-email-guard";
+
+// Call at app startup (and periodically, e.g. once a day) to pick up newly
+// observed domains without shipping a new app release.
+try {
+  const { added, total } = await syncBlocklist();
+  console.log(`Synced blocklist: +${added} new domains, ${total} total`);
+} catch (err) {
+  // Network failed, or no `fetch` in this environment — the bundled
+  // blocklist is still in effect either way, so this is safe to ignore/log.
+  console.warn("syncBlocklist failed, falling back to the bundled list:", err);
+}
+
+// By default it fetches this package's own list, refreshed weekly:
+// https://github.com/waleediqbal1717/react-native-fake-email-guard/blob/main/data/disposable-domains.txt
+// Point it at your own list instead:
+await syncBlocklist({ url: "https://example.com/my-disposable-domains.txt" });
+```
+
 ---
 
 ## React Native Example
@@ -129,6 +158,7 @@ const styles = StyleSheet.create({
 | `removeBlockedDomains` | `(domains: string[]) => void` | Remove domains from the blocklist (whitelist) |
 | `getBlockedDomains` | `() => string[]` | Returns all currently blocked domains |
 | `resetBlocklist` | `() => void` | Resets to the built-in default blocklist |
+| `syncBlocklist` | `(options?: { url?: string; fetchFn?: FetchLike }) => Promise<{ added: number; total: number }>` | Opt-in: fetches a fresh domain list and merges it in, to catch newly-rotated domains without an app update |
 
 ### `EmailCheckResult` type
 
@@ -145,7 +175,7 @@ interface EmailCheckResult {
 ## Notes
 
 - All comparisons are **case-insensitive**
-- **No network requests** — detection is 100% offline
+- **No network requests by default** — detection is 100% offline unless you explicitly call `syncBlocklist`
 - Blocklist changes via `addBlockedDomains` / `removeBlockedDomains` persist for the lifetime of the module
 - Fully typed — ships with TypeScript definitions out of the box
 

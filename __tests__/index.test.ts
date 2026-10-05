@@ -7,6 +7,7 @@ import {
   removeBlockedDomains,
   getBlockedDomains,
   resetBlocklist,
+  syncBlocklist,
 } from "../src/index";
 
 afterEach(() => {
@@ -129,6 +130,39 @@ describe("getBlockedDomains", () => {
     expect(Array.isArray(domains)).toBe(true);
     expect(domains).toContain("mailinator.com");
     expect(domains.length).toBeGreaterThan(100);
+  });
+});
+
+describe("syncBlocklist", () => {
+  it("fetches and merges new domains using an injected fetchFn", async () => {
+    expect(isDisposableEmail("x@freshly-rotated-domain.com")).toBe(false);
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => "# comment\nfreshly-rotated-domain.com\nmailinator.com\n",
+    });
+
+    const result = await syncBlocklist({ url: "https://example.com/list.txt", fetchFn });
+
+    expect(fetchFn).toHaveBeenCalledWith("https://example.com/list.txt");
+    expect(isDisposableEmail("x@freshly-rotated-domain.com")).toBe(true);
+    expect(result.added).toBe(1); // mailinator.com was already blocked
+  });
+
+  it("throws when the fetch response is not ok", async () => {
+    const fetchFn = jest.fn().mockResolvedValue({ ok: false, status: 404, text: async () => "" });
+    await expect(syncBlocklist({ fetchFn })).rejects.toThrow(/404/);
+  });
+
+  it("throws when no fetch implementation is available", async () => {
+    const originalFetch = globalThis.fetch;
+    // @ts-expect-error simulating an environment with no global fetch
+    delete globalThis.fetch;
+    try {
+      await expect(syncBlocklist({ url: "https://example.com/list.txt" })).rejects.toThrow(/fetch/i);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
 
