@@ -69,16 +69,41 @@ resetBlocklist();
 
 Disposable-mail services (temp-mail.org and similar) constantly register new
 domains and drop old ones — often faster than any bundled list, or an app
-release, can track. `syncBlocklist` fetches a fresh list at runtime and merges
-it into the blocklist, so you're not limited to whatever was bundled when the
-app was built. It's opt-in — nothing in this package makes a network request
-unless you call it.
+release, can track. Both options below are opt-in: nothing in this package
+makes a network request unless you call one of them.
+
+#### Set and forget: `enableAutoSync`
+
+Call this once, e.g. in your app's entry file. It syncs immediately, then
+again on a timer, for as long as the app runs — nobody has to remember to
+call anything again, and newly-rotated domains show up without an app update:
+
+```ts
+import { enableAutoSync } from "react-native-fake-email-guard";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+useEffect(() => {
+  const stop = enableAutoSync({
+    // Optional: persist the last-synced time so a cold app restart doesn't
+    // re-download the list if it already synced recently. Without this,
+    // every cold start syncs once (still cheap, but avoidable).
+    storage: AsyncStorage,
+    intervalMs: 24 * 60 * 60 * 1000, // default: once a day
+    onSync: ({ added, total }) => console.log(`+${added} new domains, ${total} total`),
+    onError: (err) => console.warn("blocklist sync failed, using cached list:", err),
+  });
+  return stop; // stop the background refresh on unmount, if desired
+}, []);
+```
+
+#### Manual control: `syncBlocklist`
+
+The lower-level primitive `enableAutoSync` is built on. Use it directly if you
+want to decide exactly when a sync happens instead of a recurring timer:
 
 ```ts
 import { syncBlocklist } from "react-native-fake-email-guard";
 
-// Call at app startup (and periodically, e.g. once a day) to pick up newly
-// observed domains without shipping a new app release.
 try {
   const { added, total } = await syncBlocklist();
   console.log(`Synced blocklist: +${added} new domains, ${total} total`);
@@ -87,12 +112,11 @@ try {
   // blocklist is still in effect either way, so this is safe to ignore/log.
   console.warn("syncBlocklist failed, falling back to the bundled list:", err);
 }
-
-// By default it fetches this package's own list, refreshed weekly:
-// https://github.com/waleediqbal1717/react-native-fake-email-guard/blob/main/data/disposable-domains.txt
-// Point it at your own list instead:
-await syncBlocklist({ url: "https://example.com/my-disposable-domains.txt" });
 ```
+
+Both default to fetching this package's own list, refreshed weekly:
+https://github.com/waleediqbal1717/react-native-fake-email-guard/blob/main/data/disposable-domains.txt
+— pass `url` to either one to point at your own list instead.
 
 ---
 
@@ -158,7 +182,8 @@ const styles = StyleSheet.create({
 | `removeBlockedDomains` | `(domains: string[]) => void` | Remove domains from the blocklist (whitelist) |
 | `getBlockedDomains` | `() => string[]` | Returns all currently blocked domains |
 | `resetBlocklist` | `() => void` | Resets to the built-in default blocklist |
-| `syncBlocklist` | `(options?: { url?: string; fetchFn?: FetchLike }) => Promise<{ added: number; total: number }>` | Opt-in: fetches a fresh domain list and merges it in, to catch newly-rotated domains without an app update |
+| `syncBlocklist` | `(options?: { url?: string; fetchFn?: FetchLike }) => Promise<{ added: number; total: number }>` | Opt-in: fetches a fresh domain list once and merges it in |
+| `enableAutoSync` | `(options?: AutoSyncOptions) => () => void` | Opt-in: syncs immediately and on a recurring timer for as long as the app runs; returns a function to stop it |
 
 ### `EmailCheckResult` type
 

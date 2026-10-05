@@ -150,3 +150,84 @@ export async function syncBlocklist(
   addBlockedDomains(domains);
   return { added: blocklist.size - before, total: blocklist.size };
 }
+
+/**
+ * Minimal key-value storage interface, e.g. an AsyncStorage/MMKV instance,
+ * used by `enableAutoSync` to remember when it last synced across app
+ * restarts. Without one, auto-sync still works, but re-fetches on every cold
+ * start since there's nowhere to remember the last sync time.
+ */
+export interface AutoSyncStorage {
+  getItem(key: string): string | null | Promise<string | null>;
+  setItem(key: string, value: string): void | Promise<void>;
+}
+
+export interface AutoSyncOptions extends SyncBlocklistOptions {
+  /** How often to refresh, in ms. Default: 24 hours. */
+  intervalMs?: number;
+  /** Persists the last-synced timestamp across app restarts (e.g. AsyncStorage). Without it, every cold start re-fetches. */
+  storage?: AutoSyncStorage;
+  /** Called after each successful sync. */
+  onSync?: (result: SyncBlocklistResult) => void;
+  /** Called if a sync attempt fails. Auto-sync keeps retrying on the next interval regardless — the bundled list still applies in the meantime. */
+  onError?: (error: unknown) => void;
+}
+
+const LAST_SYNCED_STORAGE_KEY = "react-native-fake-email-guard:lastSyncedAt";
+
+/**
+ * Turns on hands-off background refreshing: syncs immediately, then again
+ * every `intervalMs`, for as long as the app runs — so new disposable
+ * domains show up automatically and nobody has to remember to call
+ * `syncBlocklist` or ship an app update. Call it once, e.g. in your app's
+ * entry file:
+ *
+ * ```ts
+ * useEffect(() => enableAutoSync(), []);
+ * ```
+ *
+ * Still entirely opt-in — nothing in this package talks to the network
+ * unless `syncBlocklist` or `enableAutoSync` is called. Returns a function
+ * that stops it.
+ */
+export function enableAutoSync(options: AutoSyncOptions = {}): () => void {
+  const { intervalMs = 24 * 60 * 60 * 1000, storage, onSync, onError, ...syncOptions } = options;
+
+  let stopped = false;
+
+  const maybeSync = async () => {
+    if (storage) {
+      try {
+        const lastSyncedAt = Number(await storage.getItem(LAST_SYNCED_STORAGE_KEY)) || 0;
+        if (Date.now() - lastSyncedAt < intervalMs) return; // already fresh, skip the network call
+      } catch {
+        // Storage read failed — fall through and sync anyway.
+      }
+    }
+
+    try {
+      const result = await syncBlocklist(syncOptions);
+      if (stopped) return;
+      onSync?.(result);
+      if (storage) {
+        try {
+          await storage.setItem(LAST_SYNCED_STORAGE_KEY, String(Date.now()));
+        } catch {
+          // Storage write failed — next tick will just sync again, which is harmless.
+        }
+      }
+    } catch (error) {
+      if (!stopped) onError?.(error);
+    }
+  };
+
+  void maybeSync();
+  const timer = setInterval(maybeSync, intervalMs);
+  // Don't keep a Node process (e.g. tests, scripts) alive just for this timer.
+  (timer as unknown as { unref?: () => void }).unref?.();
+
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
+}

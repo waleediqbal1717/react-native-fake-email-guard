@@ -8,6 +8,7 @@ import {
   getBlockedDomains,
   resetBlocklist,
   syncBlocklist,
+  enableAutoSync,
 } from "../src/index";
 
 afterEach(() => {
@@ -163,6 +164,79 @@ describe("syncBlocklist", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+describe("enableAutoSync", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("syncs immediately and again on every interval until stopped", async () => {
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => "auto-synced-domain.com\n",
+    });
+    const onSync = jest.fn();
+
+    const stop = enableAutoSync({ fetchFn, intervalMs: 1000, onSync });
+
+    await jest.advanceTimersByTimeAsync(0);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(onSync).toHaveBeenCalledTimes(1);
+    expect(isDisposableEmail("x@auto-synced-domain.com")).toBe(true);
+
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+
+    stop();
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(fetchFn).toHaveBeenCalledTimes(2); // no further calls after stop()
+  });
+
+  it("calls onError and keeps running when a sync attempt fails", async () => {
+    const fetchFn = jest.fn().mockRejectedValue(new Error("network down"));
+    const onError = jest.fn();
+
+    const stop = enableAutoSync({ fetchFn, intervalMs: 1000, onError });
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "network down" }));
+    stop();
+  });
+
+  it("skips the network call when storage says the list is still fresh", async () => {
+    const fetchFn = jest.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "" });
+    const storage = {
+      getItem: jest.fn().mockResolvedValue(String(Date.now())), // "synced" just now
+      setItem: jest.fn(),
+    };
+
+    const stop = enableAutoSync({ fetchFn, intervalMs: 60_000, storage });
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(fetchFn).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it("persists the sync time to storage after a successful sync", async () => {
+    const fetchFn = jest.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "" });
+    const storage = {
+      getItem: jest.fn().mockResolvedValue(null), // nothing synced yet
+      setItem: jest.fn(),
+    };
+
+    const stop = enableAutoSync({ fetchFn, intervalMs: 60_000, storage });
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(storage.setItem).toHaveBeenCalledWith(expect.stringContaining("fake-email-guard"), expect.any(String));
+    stop();
   });
 });
 
